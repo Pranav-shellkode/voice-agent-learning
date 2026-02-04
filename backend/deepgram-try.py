@@ -8,8 +8,6 @@ import os
 load_dotenv() 
 
 async def transcribe():
-
-    # Audio settings
     RATE = 16000
     CHUNK = 8000
     api_key = os.getenv("DEEPGRAM_API_KEY")

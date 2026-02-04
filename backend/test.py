@@ -58,7 +58,7 @@ def send_to_bedrock(text: str):
         system_prompt = f"""You are a helpful helpdesk assistant. Answer questions based on the following knowledge base:
 
 {KNOWLEDGE_BASE}
-
+Keep in mind that you're questions are from a speech to text model , so pretend you can "hear" them ....
 Keep responses compact, professional, and friendly. If not in knowledge base, politely say so."""
 
         messages = []
@@ -117,7 +117,7 @@ Keep responses compact, professional, and friendly. If not in knowledge base, po
 def tts(assistant_message):
     """Convert text to speech using Deepgram and play it"""
     try:
-        print("🔊 Generating speech...")
+        print("Generating speech...")
         
         response = deepgram.speak.v1.audio.generate(
             text=assistant_message,

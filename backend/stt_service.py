@@ -61,7 +61,7 @@ def send_to_bedrock(text: str):
         system_prompt = f"""You are a helpful helpdesk assistant. Answer questions based on the following knowledge base:
 
 {KNOWLEDGE_BASE}
-
+Keep in mind that you're questions are from a speech to text model , so pretend you can "hear" them ....
 If the question is not covered in the knowledge base, politely say you don't have that information and suggest contacting support.
 Keep your response quite compact and to the point and professional don't be too talkative while being friendly toned"""
 
@@ -107,7 +107,7 @@ Keep your response quite compact and to the point and professional don't be too 
         response_body = json.loads(response['body'].read())
         assistant_message = response_body['content'][0]['text']
         
-        print(f"\n🤖 Claude (Bedrock): {assistant_message}\n")
+        print(f"\n Claude (Bedrock): {assistant_message}\n")
         
         # Add to conversation history (without system prompt)
         conversation_history.append({
