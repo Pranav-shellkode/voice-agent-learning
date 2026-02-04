@@ -41,7 +41,7 @@ deepgram = DeepgramClient(api_key=deepgram_key)
 
 pygame.mixer.init()
 
-def load_knowledge_base(file_path="data\knowledge_base.txt"):
+def load_knowledge_base(file_path="data/knowledge_base.txt"):
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             knowledge = f.read()
