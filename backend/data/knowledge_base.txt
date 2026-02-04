@@ -1,0 +1,210 @@
+Hi Shell-koders 👋,
+
+As Shellkode continues to scale across projects, clients, and teams, we’re standardizing our internal processes to ensure smoother operations, transparency, and consistency across the organization.
+
+This communication serves as a **central workplace guideline** covering HR systems, office policies, IT practices, communication norms, and employee responsibilities.
+
+Please read carefully and treat this as a reference moving forward.
+
+---
+
+# 🧩 1. Digital Systems at Shellkode
+
+Shellkode is transitioning toward fully digital internal operations.
+
+### Core platforms in use:
+
+• Zoho People (ZPP) – Attendance, Leave, Employee Data, Payroll inputs
+• Teams – Internal communication & support channels
+• Email – Official announcements & approvals
+• Project tools (Jira/Git/Notion etc.) – Team-level workflow
+
+👉 Always treat system records as the **official source of truth**
+
+---
+
+# 🕘 2. Office Working Standards
+
+### ⏰ Standard Working Hours
+
+**9:30 AM – 6:30 PM (Monday – Friday)**
+
+### Employees are expected to:
+
+✔ Log attendance daily
+✔ Be available during core hours
+✔ Inform managers in advance for delays or absences
+
+Chronic late logins, missed punches, or unplanned leaves may reflect in performance reviews.
+
+---
+
+# 🏠 3. Remote Work & Hybrid Expectations
+
+Remote or hybrid work is allowed only when:
+
+• Approved by reporting manager
+• Project requirements permit
+• Delivery timelines are unaffected
+
+### While working remotely:
+
+✔ Stay active on Teams
+✔ Attend standups & meetings
+✔ Maintain responsiveness
+
+Unapproved WFH may be treated as absence.
+
+---
+
+---
+
+# 🛡️ 5. IT & Data Security Policy
+
+All employees must:
+
+✔ Use company-approved devices/tools where applicable
+✔ Protect client and company data
+✔ Avoid sharing credentials
+✔ Lock systems when away
+✔ Use VPN/security tools if instructed
+
+### Strictly prohibited:
+
+❌ Sharing client data externally
+❌ Uploading company code/docs to personal clouds
+❌ Using unlicensed software
+
+Violations may lead to disciplinary action.
+
+---
+
+# 🧾 6. Leave Types at Shellkode (General)
+
+Common leave categories include:
+
+• Casual Leave (CL)
+• Sick Leave (SL)
+• Loss of Pay (LOP)
+• Approved Special Leave (as applicable)
+
+All leaves must be applied through ZPP once live.
+
+Emergency leaves should be communicated immediately to managers.
+
+---
+1st Reminder: 15th of the month
+
+2nd Reminder: 23rd of the month
+These will go to your Immediate Manager for approval. If missed, payroll will be processed based only on available data.
+
+
+Hi Shell‑koders, 👋
+We’re excited to announce that Zoho People (ZPP) will officially launch on 27th Jan 2026. We’ll begin with Attendance and Leave tracking as the first step.
+
+All employees will be assigned ZP access (activated by us), so you’ll start receiving mailers directly. Please take note of the following rules and timelines: 
+
+Note: A detailed guideline document will be shared with you for easy reference.
+
+⏰ Daily Check‑in & Check‑out (9:30 AM – 6:30 PM)
+Missing this will be treated as unpaid leave. Please follow it diligently.
+(Exceptions: Ex‑Cos, enabling function and field teams like Sales team, employees at client sites).
+
+📧 Attendance Regularization & Leave Updates
+Automated reminders will be sent in case you make a miss in updating any day or any leave.
+📊 Leave Balance & Attendance Status
+You can track this directly from your ZPP access—no manual intervention needed.
+
+🛠️ Technical Glitches (Expected!)
+In case of issues, highlight them in the Teams Group (to be created by tomorrow).
+
+📅 Data Submission Deadline – 5th Feb 2026
+All relevant employment details must be updated in the system by this date by every employee. Delays may result in your ZPP access being auto‑blocked.
+
+👥 Applicability
+This process applies to all employees (trainees and laterals).
+
+Let’s embrace this change together—it’ll make our processes smoother, smarter, and more transparent. 🌟
+
+Hi All,
+
+Zoho People (ZPP) will go live starting 1st February 2026 due to some updated configuration. Please note that you will be able to regularize backdated attendance and update leave records.
+
+In the meantime, please ignore any recent updates currently visible in the system, as the backend data and information are still being aligned.
+
+Thank you for your patience and understanding 🙂
+here is currently a backend issue with Zoho that is being addressed. Please wait for a follow-up email for further updates.
+
+Expect:
+
+• Periodic performance reviews
+• Feedback sessions
+• Skill development opportunities
+• Growth paths based on merit
+
+---
+
+# 📣 8. Escalation & Support Flow
+
+If you face issues:
+
+### 1️⃣ First level: Immediate Manager
+
+### 2️⃣ Second level: Team Lead/Project Head
+
+### 3️⃣ Third level: HR/Operations/IT Support
+
+For system-related issues → Dedicated Teams support group (to be announced)
+
+---
+
+# 🧠 9. Learning & Knowledge Sharing
+
+Shellkode promotes:
+
+• Internal tech sessions
+• Knowledge documentation
+• Mentorship
+• Cross-team collaboration
+
+Employees are encouraged to contribute to:
+
+✔ Internal wikis
+✔ Process docs
+✔ Best practices
+
+---
+
+# 🤝 10. Professional Conduct & Culture
+
+We expect everyone to uphold:
+
+✅ Respectful communication
+✅ Ethical behavior
+✅ Accountability
+✅ Client confidentiality
+✅ Inclusive work culture
+
+Harassment, discrimination, or unprofessional behavior will not be tolerated.—
+Pranav
+Shellkode Operations & HR
+ 
+
+## Important Note 
+
+The coimbatore branch of our office has moved from the older space "Bytes workspaces" near the Bus stand to 
+"SMD Towers" near Shanthi Social Services...
+
+❓ Quick FAQs (Shellkode Specific)
+
+Q: Will previous attendance be migrated?
+Yes — historical data will be aligned during backend sync.
+
+Q: Who approves my attendance/leave?
+Your immediate reporting manager as per Shellkode hierarchy.
+
+Q: Can I regularize past months?
+Yes, within the policy window — but strongly recommended to do it monthly.
+
+Q: Will ZPP affect payroll directly?
+Yes — ZPP will become the payroll input source.

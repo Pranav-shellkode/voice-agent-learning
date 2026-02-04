@@ -1,0 +1,21 @@
+[project]
+name = "voice-agent"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "assemblyai[extras]>=0.49.0",
+    "asyncio>=4.0.0",
+    "boto3>=1.42.40",
+    "deepgram-sdk[extras]>=5.3.2",
+    "fastapi[standard]>=0.128.0",
+    "gtts>=2.5.4",
+    "pyaudio>=0.2.14",
+    "pygame>=2.6.1",
+    "python-dotenv>=1.2.1",
+    "pyttsx3>=2.99",
+    "requests>=2.32.5",
+    "sounddevice>=0.5.5",
+    "websockets>=16.0",
+]
