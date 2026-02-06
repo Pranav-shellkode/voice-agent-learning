@@ -173,7 +173,6 @@ Keep your response quite compact and to the point and professional don't be too 
 
 
 async def generate_tts(text: str) -> bytes:
-    """Convert text to speech using Deepgram"""
     try:
         logger.info("Generating speech with Deepgram")
         
@@ -202,8 +201,6 @@ async def generate_tts(text: str) -> bytes:
 async def root():
     """Health check endpoint"""
     return {
-        "status": "online",
-        "service": "Voice Assistant API",
         "endpoints": {
             "websocket": "/ws",
             "chat": "/api/chat",
