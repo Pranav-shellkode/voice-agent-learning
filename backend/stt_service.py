@@ -168,7 +168,7 @@ def tts(assistant_message):
         
         # os.remove("response.mp3")
         
-        print("✓ Speech playback completed\n")
+        print("Speech playback completed\n")
         
     except Exception as e:
         logger.error(f"Error in TTS: {e}")

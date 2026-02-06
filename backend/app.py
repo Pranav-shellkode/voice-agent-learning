@@ -1,4 +1,7 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException , Request 
+from fastapi.responses import HTMLResponse 
+from fastapi.templating import Jinja2Templates 
+from models import AudioTranscribeRequest, ChatMessage , TTSRequest 
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -17,12 +20,14 @@ import base64
 import tempfile
 
 load_dotenv()
+templates = Jinja2Templates(directory="frontend/")
 
 api_key = os.getenv("ASSEMBLY_API_KEY")
 deepgram_key = os.getenv("DEEPGRAM_API_KEY")
-
-# Configure AssemblyAI
 aai.settings.api_key = api_key
+deepgram = DeepgramClient(api_key=deepgram_key)
+bedrock_runtime = boto3.client(service_name='bedrock-runtime')
+
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -32,17 +37,16 @@ KNOWLEDGE_BASE = ""
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Load knowledge base on startup"""
     global KNOWLEDGE_BASE
     KNOWLEDGE_BASE = load_knowledge_base()
     if not KNOWLEDGE_BASE:
-        logger.warning("Warning: Knowledge base is empty. Create a 'data/knowledge_base.txt' file.")
+        logger.warning("Knowledge base not found..")
     yield
 
 
 app = FastAPI(
     title="Voice Assistant API",
-    description="Real-time STT->LLM->TTS pipeline",
+    description="Helpdesk assistant",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -55,25 +59,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-bedrock_runtime = boto3.client(service_name='bedrock-runtime')
-deepgram = DeepgramClient(api_key=deepgram_key)
-
-
-class ChatMessage(BaseModel):
-    text: str
-    conversation_history: Optional[list] = []
-
-
-class TTSRequest(BaseModel):
-    text: str
-
-
-class AudioTranscribeRequest(BaseModel):
-    audio_base64: str
-
-
 def load_knowledge_base(file_path: str = "data/knowledge_base.txt") -> str:
-    """Load knowledge base from file"""
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             knowledge = f.read()
@@ -103,7 +89,6 @@ async def transcribe_audio(audio_bytes: bytes) -> str:
             lambda: transcriber.transcribe(temp_path)
         )
         
-        # Clean up temp file
         try:
             os.unlink(temp_path)
         except:
@@ -126,7 +111,7 @@ async def send_to_bedrock(text: str, conversation_history: list) -> str:
         system_prompt = f"""You are a helpful helpdesk assistant. Answer questions based on the following knowledge base:
 
 {KNOWLEDGE_BASE}
-
+Your role is that of a helpdesk assistant for a company called Shellkode , keep your response under 50 words always .. (very important)
 Keep in mind that your questions are from a speech to text model, so pretend you can "hear" them.
 If the question is not covered in the knowledge base, politely say you don't have that information and suggest contacting support.
 Keep your response quite compact and to the point and professional don't be too talkative while being friendly toned"""
@@ -139,15 +124,20 @@ Keep your response quite compact and to the point and professional don't be too 
                 "role": "user",
                 "content": [{"type": "text", "text": system_prompt}]
             })
-            messages.append({
-                "role": "assistant",
-                "content": [{"type": "text", "text": "I understand. I'll answer questions based on the knowledge base provided."}]
-            })
+            # messages.append({
+            #     "role": "assistant",
+            #     "content": [{"type": "text", "text": "I understand. I'll answer questions based on the knowledge base provided."}]
+            # })
         
+        
+        MAX_HISTORY = 5
+        def trim_history(conversation_history):
+            return conversation_history[-MAX_HISTORY:]
+
         # Add conversation history
-        messages.extend(conversation_history)
-        
-        # Add current user message
+        messages.extend(trim_history(conversation_history))
+
+        # Add current user message in case of a continued conversation 
         messages.append({
             "role": "user",
             "content": [{"type": "text", "text": text}]
@@ -158,7 +148,7 @@ Keep your response quite compact and to the point and professional don't be too 
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 512,
             "messages": messages,
-            "temperature": 0.5
+            "temperature": 0.5,
         }
         
         # Call Bedrock (run in executor to avoid blocking)
@@ -171,12 +161,10 @@ Keep your response quite compact and to the point and professional don't be too 
             )
         )
 
-        # Parse response
         response_body = json.loads(response['body'].read())
         assistant_message = response_body['content'][0]['text']
         
-        logger.info(f"Claude (Bedrock): {assistant_message}")
-        
+        logger.info(f"LLM : {assistant_message}")
         return assistant_message
        
     except Exception as e:
@@ -202,7 +190,6 @@ async def generate_tts(text: str) -> bytes:
         audio_buffer = io.BytesIO()
         for chunk in response:
             audio_buffer.write(chunk)
-        
         audio_buffer.seek(0)
         return audio_buffer.getvalue()
         
@@ -440,24 +427,24 @@ async def websocket_endpoint(websocket: WebSocket):
             pass
 
 
-@app.get("/api/knowledge-base")
-async def get_knowledge_base():
-    """Get current knowledge base content"""
-    return {
-        "content": KNOWLEDGE_BASE,
-        "loaded": bool(KNOWLEDGE_BASE)
-    }
+# @app.get("/api/knowledge-base")
+# async def get_knowledge_base():
+#     """Get current knowledge base content"""
+#     return {
+#         "content": KNOWLEDGE_BASE,
+#         "loaded": bool(KNOWLEDGE_BASE)
+#     }
 
 
-@app.post("/api/knowledge-base/reload")
-async def reload_knowledge_base():
-    """Reload knowledge base from file"""
-    global KNOWLEDGE_BASE
-    KNOWLEDGE_BASE = load_knowledge_base()
-    return {
-        "status": "reloaded",
-        "loaded": bool(KNOWLEDGE_BASE)
-    }
+# @app.post("/api/knowledge-base/reload")
+# async def reload_knowledge_base():
+#     """Reload knowledge base from file"""
+#     global KNOWLEDGE_BASE
+#     KNOWLEDGE_BASE = load_knowledge_base()
+#     return {
+#         "status": "reloaded",
+#         "loaded": bool(KNOWLEDGE_BASE)
+#     }
 
 
 if __name__ == "__main__":
