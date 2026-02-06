@@ -424,24 +424,24 @@ async def websocket_endpoint(websocket: WebSocket):
             pass
 
 
-# @app.get("/api/knowledge-base")
-# async def get_knowledge_base():
-#     """Get current knowledge base content"""
-#     return {
-#         "content": KNOWLEDGE_BASE,
-#         "loaded": bool(KNOWLEDGE_BASE)
-#     }
+@app.get("/api/knowledge-base")
+async def get_knowledge_base():
+    """Get current knowledge base content"""
+    return {
+        "content": KNOWLEDGE_BASE,
+        "loaded": bool(KNOWLEDGE_BASE)
+    }
 
 
-# @app.post("/api/knowledge-base/reload")
-# async def reload_knowledge_base():
-#     """Reload knowledge base from file"""
-#     global KNOWLEDGE_BASE
-#     KNOWLEDGE_BASE = load_knowledge_base()
-#     return {
-#         "status": "reloaded",
-#         "loaded": bool(KNOWLEDGE_BASE)
-#     }
+@app.post("/api/knowledge-base/reload")
+async def reload_knowledge_base():
+    """Reload knowledge base from file"""
+    global KNOWLEDGE_BASE
+    KNOWLEDGE_BASE = load_knowledge_base()
+    return {
+        "status": "reloaded",
+        "loaded": bool(KNOWLEDGE_BASE)
+    }
 
 
 if __name__ == "__main__":
