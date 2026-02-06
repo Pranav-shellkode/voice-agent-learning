@@ -1,18 +1,22 @@
 class VoiceAssistant {
 constructor() {
+    // websocket connection 
     this.ws = null;
+    // empty list of conversation history 
     this.conversationHistory = [];
     this.isConnected = false;
+    // mic recorder 
     this.mediaRecorder = null;
     this.audioChunks = [];
     this.isRecording = false;
+    // text voice mode 
     this.currentMode = 'text';
     
     this.initializeElements();
     this.attachEventListeners();
 }
 
-initializeElements() {
+initializeElements(){
     this.chatContainer = document.getElementById('chatContainer');
     this.messageInput = document.getElementById('messageInput');
     this.sendBtn = document.getElementById('sendBtn');
@@ -32,6 +36,7 @@ initializeElements() {
 
 attachEventListeners() {
     this.sendBtn.addEventListener('click', () => this.sendMessage());
+
     this.messageInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter') this.sendMessage();
     });

@@ -5,6 +5,7 @@
             padding: 0;
             box-sizing: border-box;
         }
+        
 
         :root {
             --primary: #3b82f6;
@@ -21,7 +22,7 @@
         }
 
         body {
-            font-family: 'Arial', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
             background: var(--dark-bg);
             min-height: 100vh;
             padding: 30px 20px;
