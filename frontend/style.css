@@ -638,3 +638,70 @@
                 transition-duration: 0.01ms !important;
             }
         }
+
+        /* ====================================
+   STREAMING ANIMATIONS & STYLES
+   ==================================== */
+
+/* Streaming message indicator */
+.message.streaming {
+    position: relative;
+}
+
+/* Pulsing dot next to streaming message */
+.message.streaming::after {
+    content: '';
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin-left: 4px;
+    background-color: #4CAF50;
+    border-radius: 50%;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+    }
+}
+
+/* Typing cursor effect for streaming text */
+.message.streaming .message-content::after {
+    content: '▊';
+    animation: blink 1s step-end infinite;
+    margin-left: 2px;
+    color: #4CAF50;
+}
+
+@keyframes blink {
+    50% {
+        opacity: 0;
+    }
+}
+
+/* Smooth text appearance */
+.message-content {
+    line-height: 1.6;
+    word-wrap: break-word;
+    transition: all 0.1s ease-in-out;
+}
+
+/* Optional: Fade-in effect for new text chunks */
+.message.streaming .message-content {
+    animation: fadeIn 0.2s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0.8;
+    }
+    to {
+        opacity: 1;
+    }
+}
