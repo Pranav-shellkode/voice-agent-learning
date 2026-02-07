@@ -1,7 +1,7 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException , Request 
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Request 
 from fastapi.responses import HTMLResponse 
 from fastapi.templating import Jinja2Templates 
-from models import AudioTranscribeRequest, ChatMessage , TTSRequest 
+from models import AudioTranscribeRequest, ChatMessage, TTSRequest 
 from contextlib import asynccontextmanager
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
@@ -18,6 +18,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 import base64
 import tempfile
+import re
 
 load_dotenv()
 templates = Jinja2Templates(directory="frontend/")
@@ -75,12 +76,10 @@ async def transcribe_audio(audio_bytes: bytes) -> str:
     try:
         logger.info("Transcribing audio with AssemblyAI")
         
-        # Save audio temporarily
         with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_file:
             temp_file.write(audio_bytes)
             temp_path = temp_file.name
         
-        # Run transcription in executor to avoid blocking
         loop = asyncio.get_event_loop()
         transcriber = aai.Transcriber()
         
@@ -105,45 +104,36 @@ async def transcribe_audio(audio_bytes: bytes) -> str:
         raise HTTPException(status_code=500, detail=f"STT error: {str(e)}")
 
 
-async def send_to_bedrock(text: str, conversation_history: list) -> str:
-    """Send transcribed text to AWS Bedrock with knowledge base context"""
+async def stream_bedrock_response(text: str, conversation_history: list, websocket: WebSocket):
+    """
+    Stream LLM response token by token
+    Returns the complete response text
+    """
     try:
         system_prompt = f"""You are a helpful helpdesk assistant. Answer questions based on the following knowledge base:
 
 {KNOWLEDGE_BASE}
-Your role is that of a helpdesk assistant for a company called Shellkode , keep your response under 50 words always .. (very important)
+Answer from the knowledge base file that you read only ....
+Your role is that of a helpdesk assistant for a company called Shellkode, keep your response under 50 words always.. (very important)
 Keep in mind that your questions are from a speech to text model, so pretend you can "hear" them.
 If the question is not covered in the knowledge base, politely say you don't have that information and suggest contacting support.
 Keep your response quite compact and to the point and professional don't be too talkative while being friendly toned"""
 
         messages = []
         
-        # Add system message as first user message with assistant acknowledgment
         if len(conversation_history) == 0:
             messages.append({
                 "role": "user",
                 "content": [{"type": "text", "text": system_prompt}]
             })
-            # messages.append({
-            #     "role": "assistant",
-            #     "content": [{"type": "text", "text": "I understand. I'll answer questions based on the knowledge base provided."}]
-            # })
-        
         
         MAX_HISTORY = 5
-        def trim_history(conversation_history):
-            return conversation_history[-MAX_HISTORY:]
-
-        # Add conversation history
-        messages.extend(trim_history(conversation_history))
-
-        # Add current user message in case of a continued conversation 
+        messages.extend(conversation_history[-MAX_HISTORY:])
         messages.append({
             "role": "user",
             "content": [{"type": "text", "text": text}]
         })
         
-        # Prepare request body for Claude on Bedrock
         request_body = {
             "anthropic_version": "bedrock-2023-05-31",
             "max_tokens": 512,
@@ -151,7 +141,128 @@ Keep your response quite compact and to the point and professional don't be too 
             "temperature": 0.5,
         }
         
-        # Call Bedrock (run in executor to avoid blocking)
+        # Use streaming API
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: bedrock_runtime.invoke_model_with_response_stream(
+                modelId="anthropic.claude-3-5-sonnet-20240620-v1:0",
+                body=json.dumps(request_body),
+            )
+        )
+        
+        full_response = ""
+        event_stream = response['body']
+        
+        # Process streaming events
+        for event in event_stream:
+            chunk = event.get('chunk')
+            if chunk:
+                chunk_data = json.loads(chunk['bytes'].decode())
+                
+                if chunk_data['type'] == 'content_block_delta':
+                    if chunk_data['delta']['type'] == 'text_delta':
+                        text_chunk = chunk_data['delta']['text']
+                        full_response += text_chunk
+                        
+                        # Send chunk immediately
+                        await websocket.send_json({
+                            "type": "llm_chunk",
+                            "text": text_chunk
+                        })
+                        logger.info(f"LLM chunk: {text_chunk}")
+        
+        logger.info(f"LLM complete: {full_response}")
+        return full_response
+       
+    except Exception as e:
+        logger.error(f"Error calling Bedrock: {e}")
+        raise Exception(f"Bedrock error: {str(e)}")
+
+
+async def stream_tts_generation(text: str, websocket: WebSocket):
+    """
+    Generate TTS sentence by sentence and stream to frontend
+    """
+    try:
+        # Split text into sentences
+        sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+        sentences = [s.strip() for s in sentences if s.strip()]
+        
+        logger.info(f"Generating TTS for {len(sentences)} sentences")
+        
+        for i, sentence in enumerate(sentences):
+            logger.info(f"Processing sentence {i+1}/{len(sentences)}: {sentence}")
+            
+            # Generate TTS for this sentence
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda s=sentence: deepgram.speak.v1.audio.generate(
+                    text=s,
+                    model="aura-2-thalia-en"
+                )
+            )
+            
+            # Collect audio bytes
+            audio_buffer = io.BytesIO()
+            for chunk in response:
+                audio_buffer.write(chunk)
+            
+            audio_buffer.seek(0)
+            audio_bytes = audio_buffer.getvalue()
+            
+            logger.info(f"Generated {len(audio_bytes)} bytes of audio for sentence {i+1}")
+            
+            # Send audio chunk to frontend
+            await websocket.send_json({
+                "type": "tts_chunk",
+                "audio": audio_bytes.hex(),
+                "chunk_index": i,
+                "is_last": (i == len(sentences) - 1)
+            })
+            
+            logger.info(f"Sent TTS chunk {i+1}/{len(sentences)}")
+        
+    except Exception as e:
+        logger.error(f"Error in TTS streaming: {e}", exc_info=True)
+        raise Exception(f"TTS error: {str(e)}")
+
+
+# Keep original functions for REST endpoints
+async def send_to_bedrock(text: str, conversation_history: list) -> str:
+    """Non-streaming LLM"""
+    try:
+        system_prompt = f"""You are a helpful helpdesk assistant. Answer questions based on the following knowledge base:
+
+{KNOWLEDGE_BASE}
+Your role is that of a helpdesk assistant for a company called Shellkode, keep your response under 50 words always.. (very important)
+Keep in mind that your questions are from a speech to text model, so pretend you can "hear" them.
+If the question is not covered in the knowledge base, politely say you don't have that information and suggest contacting support.
+Keep your response quite compact and to the point and professional don't be too talkative while being friendly toned"""
+
+        messages = []
+        
+        if len(conversation_history) == 0:
+            messages.append({
+                "role": "user",
+                "content": [{"type": "text", "text": system_prompt}]
+            })
+        
+        MAX_HISTORY = 5
+        messages.extend(conversation_history[-MAX_HISTORY:])
+        messages.append({
+            "role": "user",
+            "content": [{"type": "text", "text": text}]
+        })
+        
+        request_body = {
+            "anthropic_version": "bedrock-2023-05-31",
+            "max_tokens": 512,
+            "messages": messages,
+            "temperature": 0.5,
+        }
+        
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
@@ -162,10 +273,7 @@ Keep your response quite compact and to the point and professional don't be too 
         )
 
         response_body = json.loads(response['body'].read())
-        assistant_message = response_body['content'][0]['text']
-        
-        logger.info(f"LLM : {assistant_message}")
-        return assistant_message
+        return response_body['content'][0]['text']
        
     except Exception as e:
         logger.error(f"Error calling Bedrock: {e}")
@@ -173,10 +281,8 @@ Keep your response quite compact and to the point and professional don't be too 
 
 
 async def generate_tts(text: str) -> bytes:
+    """Non-streaming TTS"""
     try:
-        logger.info("Generating speech with Deepgram")
-        
-        # Run Deepgram TTS in executor to avoid blocking
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None,
@@ -199,7 +305,6 @@ async def generate_tts(text: str) -> bytes:
 
 @app.get("/")
 async def root():
-    """Health check endpoint"""
     return {
         "endpoints": {
             "websocket": "/ws",
@@ -212,20 +317,10 @@ async def root():
 
 @app.post("/api/transcribe")
 async def transcribe(request: AudioTranscribeRequest):
-    """
-    Transcribe audio to text using AssemblyAI
-    """
     try:
-        # Decode base64 audio
         audio_bytes = base64.b64decode(request.audio_base64)
-        
-        # Transcribe
         text = await transcribe_audio(audio_bytes)
-        
-        return {
-            "text": text
-        }
-        
+        return {"text": text}
     except Exception as e:
         logger.error(f"Error in transcribe endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -233,24 +328,13 @@ async def transcribe(request: AudioTranscribeRequest):
 
 @app.post("/api/chat")
 async def chat(message: ChatMessage):
-    """
-    Process text message through LLM and return response with audio
-    """
     try:
-        # Get LLM response
         assistant_response = await send_to_bedrock(
             message.text,
             message.conversation_history
         )
-        
-        # Generate TTS audio
         audio_data = await generate_tts(assistant_response)
-        
-        return {
-            "text": assistant_response,
-            "audio_available": True
-        }
-        
+        return {"text": assistant_response, "audio_available": True}
     except Exception as e:
         logger.error(f"Error in chat endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -258,20 +342,13 @@ async def chat(message: ChatMessage):
 
 @app.post("/api/tts")
 async def text_to_speech(request: TTSRequest):
-    """
-    Convert text to speech and stream audio
-    """
     try:
         audio_data = await generate_tts(request.text)
-        
         return StreamingResponse(
             io.BytesIO(audio_data),
             media_type="audio/mpeg",
-            headers={
-                "Content-Disposition": "attachment; filename=response.mp3"
-            }
+            headers={"Content-Disposition": "attachment; filename=response.mp3"}
         )
-        
     except Exception as e:
         logger.error(f"Error in TTS endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -280,15 +357,7 @@ async def text_to_speech(request: TTSRequest):
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """
-    WebSocket endpoint for STT->LLM->TTS pipeline
-    Accumulates audio chunks and transcribes on end_turn
-    
-    Expected message format:
-    {
-        "type": "audio_chunk" | "end_turn" | "text" | "close",
-        "data": <audio_bytes_base64> | <text_string>,
-        "conversation_history": []  # optional
-    }
+    Streaming WebSocket endpoint
     """
     await websocket.accept()
     logger.info("WebSocket connection established")
@@ -298,25 +367,20 @@ async def websocket_endpoint(websocket: WebSocket):
     
     try:
         while True:
-            # Receive message from client
             message = await websocket.receive_json()
-            
             msg_type = message.get("type")
             
             if msg_type == "audio_chunk":
-                # Accumulate audio chunks
                 audio_base64 = message.get("data")
                 audio_bytes = base64.b64decode(audio_base64)
                 audio_chunks.append(audio_bytes)
                 
-                # Send acknowledgment
                 await websocket.send_json({
                     "type": "audio_received",
                     "chunks": len(audio_chunks)
                 })
                 
             elif msg_type == "end_turn":
-                # Combine all audio chunks
                 if not audio_chunks:
                     await websocket.send_json({
                         "type": "error",
@@ -326,12 +390,12 @@ async def websocket_endpoint(websocket: WebSocket):
                 
                 logger.info(f"Processing {len(audio_chunks)} audio chunks")
                 full_audio = b''.join(audio_chunks)
-                audio_chunks = []  # Reset
+                audio_chunks = []
                 
                 conversation_history_input = message.get("conversation_history", conversation_history)
                 
                 try:
-                    # Transcribe
+                    # Step 1: Transcribe
                     text = await transcribe_audio(full_audio)
                     
                     if not text or text.strip() == "":
@@ -341,10 +405,24 @@ async def websocket_endpoint(websocket: WebSocket):
                         })
                         continue
                     
-                    # Get LLM response
-                    assistant_response = await send_to_bedrock(text, conversation_history_input)
+                    await websocket.send_json({
+                        "type": "transcription",
+                        "text": text
+                    })
                     
-                    # Update conversation history
+                    # Step 2: Stream LLM
+                    await websocket.send_json({"type": "llm_start"})
+                    
+                    assistant_response = await stream_bedrock_response(
+                        text, conversation_history_input, websocket
+                    )
+                    
+                    await websocket.send_json({
+                        "type": "llm_complete",
+                        "full_text": assistant_response
+                    })
+                    
+                    # Update history
                     conversation_history.append({
                         "role": "user",
                         "content": [{"type": "text", "text": text}]
@@ -354,55 +432,68 @@ async def websocket_endpoint(websocket: WebSocket):
                         "content": [{"type": "text", "text": assistant_response}]
                     })
                     
-                    # Generate TTS
-                    audio_data = await generate_tts(assistant_response)
+                    # Step 3: Stream TTS
+                    await websocket.send_json({"type": "tts_start"})
+                    await stream_tts_generation(assistant_response, websocket)
+                    await websocket.send_json({"type": "tts_complete"})
                     
-                    # Send response back
                     await websocket.send_json({
-                        "type": "response",
-                        "user_text": text,
-                        "text": assistant_response,
-                        "audio": audio_data.hex(),
+                        "type": "turn_complete",
                         "conversation_history": conversation_history
                     })
                     
                 except Exception as e:
-                    logger.error(f"Error processing audio: {e}")
+                    logger.error(f"Error processing audio: {e}", exc_info=True)
                     await websocket.send_json({
                         "type": "error",
                         "message": f"Processing error: {str(e)}"
                     })
             
             elif msg_type == "text":
-                # Process text message
                 text = message.get("data")
                 conversation_history = message.get("conversation_history", conversation_history)
                 
                 logger.info(f"Received text: {text}")
                 
-                # Get LLM response
-                assistant_response = await send_to_bedrock(text, conversation_history)
-                
-                # Update conversation history
-                conversation_history.append({
-                    "role": "user",
-                    "content": [{"type": "text", "text": text}]
-                })
-                conversation_history.append({
-                    "role": "assistant",
-                    "content": [{"type": "text", "text": assistant_response}]
-                })
-                
-                # Generate TTS
-                audio_data = await generate_tts(assistant_response)
-                
-                # Send response back
-                await websocket.send_json({
-                    "type": "response",
-                    "text": assistant_response,
-                    "audio": audio_data.hex(),
-                    "conversation_history": conversation_history
-                })
+                try:
+                    # Stream LLM
+                    await websocket.send_json({"type": "llm_start"})
+                    
+                    assistant_response = await stream_bedrock_response(
+                        text, conversation_history, websocket
+                    )
+                    
+                    await websocket.send_json({
+                        "type": "llm_complete",
+                        "full_text": assistant_response
+                    })
+                    
+                    # Update history
+                    conversation_history.append({
+                        "role": "user",
+                        "content": [{"type": "text", "text": text}]
+                    })
+                    conversation_history.append({
+                        "role": "assistant",
+                        "content": [{"type": "text", "text": assistant_response}]
+                    })
+                    
+                    # Stream TTS
+                    await websocket.send_json({"type": "tts_start"})
+                    await stream_tts_generation(assistant_response, websocket)
+                    await websocket.send_json({"type": "tts_complete"})
+                    
+                    await websocket.send_json({
+                        "type": "turn_complete",
+                        "conversation_history": conversation_history
+                    })
+                    
+                except Exception as e:
+                    logger.error(f"Error processing text: {e}", exc_info=True)
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": f"Processing error: {str(e)}"
+                    })
                 
             elif msg_type == "ping":
                 await websocket.send_json({"type": "pong"})
@@ -414,41 +505,25 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected")
     except Exception as e:
-        logger.error(f"WebSocket error: {e}")
+        logger.error(f"WebSocket error: {e}", exc_info=True)
         try:
-            await websocket.send_json({
-                "type": "error",
-                "message": str(e)
-            })
+            await websocket.send_json({"type": "error", "message": str(e)})
         except:
             pass
 
 
 @app.get("/api/knowledge-base")
 async def get_knowledge_base():
-    """Get current knowledge base content"""
-    return {
-        "content": KNOWLEDGE_BASE,
-        "loaded": bool(KNOWLEDGE_BASE)
-    }
+    return {"content": KNOWLEDGE_BASE, "loaded": bool(KNOWLEDGE_BASE)}
 
 
 @app.post("/api/knowledge-base/reload")
 async def reload_knowledge_base():
-    """Reload knowledge base from file"""
     global KNOWLEDGE_BASE
     KNOWLEDGE_BASE = load_knowledge_base()
-    return {
-        "status": "reloaded",
-        "loaded": bool(KNOWLEDGE_BASE)
-    }
+    return {"status": "reloaded", "loaded": bool(KNOWLEDGE_BASE)}
 
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(
-        app,
-        host="127.0.0.1",
-        port=8000,
-        log_level="info"
-    )
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="info")

@@ -1,10 +1,3 @@
-Hi Shell-koders 👋,
-
-As Shellkode continues to scale across projects, clients, and teams, we’re standardizing our internal processes to ensure smoother operations, transparency, and consistency across the organization.
-
-This communication serves as a **central workplace guideline** covering HR systems, office policies, IT practices, communication norms, and employee responsibilities.
-
-Please read carefully and treat this as a reference moving forward.
 
 ---
 
@@ -194,6 +187,7 @@ Shellkode Operations & HR
 
 The coimbatore branch of our office has moved from the older space "Bytes workspaces" near the Bus stand to 
 "SMD Towers" near Shanthi Social Services...
+The above sentence tells you where the new office is located 
 
 ❓ Quick FAQs (Shellkode Specific)
 
